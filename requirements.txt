@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 pydantic
+=======
+pydantic
+>>>>>>> 004e59bc490355f02e6d1d751370178a00e0b1fd
