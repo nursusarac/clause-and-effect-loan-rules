@@ -26,4 +26,4 @@ with csv_path.open(mode="r", encoding="utf-8") as f:
         model = LoanFieldRules(**payload)
         valid_count += 1
 
-print(f"Başarılı! {valid_count} / {len(rows)} kredi anlaşması Pydantic kurallarından sorunsuz geçti.")
+print(f"Success! {valid_count} / {len(rows)} loan agreements passed Pydantic validation.")

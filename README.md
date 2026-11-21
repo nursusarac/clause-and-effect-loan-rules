@@ -11,3 +11,4 @@ Pydantic validation models and test scripts for automated loan agreement field c
 ```bash
 python -m pip install pydantic
 python test_rules.py
+```
