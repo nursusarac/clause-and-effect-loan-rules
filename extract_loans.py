@@ -1,21 +1,25 @@
-import json
+﻿import json
 import os
 from pathlib import Path
-import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
+import pandas as pd
 
 load_dotenv()
 
 CSV_PATH = Path("New Commercial Credit Agreements (Jul-Nov 2026 Signings).csv")
 OUTPUT_PATH = Path("loan_rows.json")
-FREE_MODEL = "openrouter/free"  # veya OpenRouter'daki aktif ücretsiz model kimliği
+MODEL_NAME = "openrouter/free"
 
 EXTRACTION_PROMPT = """
-You are a commercial credit data extraction assistant.
-Read the full agreement_text carefully (never stop at the first clause, because later amendments like Section 2.03 in AGR-2026-019 can override earlier terms, and borrower names in text like AGR-2026-016 can differ from agreement_title).
+You are a commercial credit agreement extraction engine.
+Read the entire agreement_text before extracting fields so later amendments or overriding clauses (such as a Section 2.03 amendment changing a margin tier in AGR-2026-019) supersede earlier statements.
 
-Extract the loan fields following the project's Pydantic validation rules, convert amounts to exact integers and dates to YYYY-MM-DD (computing anniversary/term dates from Closing Date / signed_date when needed), and include an exact verbatim quote from agreement_text as proof for every extracted field.
+Rules:
+1. Handle varying clause numbering, clause ordering, and borrower labels ("Borrower" vs. "Company"), and extract borrower names from agreement_text even when agreement_title differs (as in AGR-2026-016).
+2. Normalize commitment amounts into exact integer values and maturity dates into YYYY-MM-DD (calculating dates from closing/signing dates when expressed as an anniversary or term duration).
+3. Follow the project's Pydantic validation rules (from rules.py) and include exact verbatim quotes from agreement_text as proof for every extracted field.
+4. Return valid JSON only.
 """
 
 
@@ -30,7 +34,7 @@ def main() -> None:
     )
 
     df = pd.read_csv(CSV_PATH)
-    results = []
+    extracted_rows = []
 
     for _, row in df.iterrows():
         payload = {
@@ -42,23 +46,26 @@ def main() -> None:
         }
 
         response = client.chat.completions.create(
-            model=FREE_MODEL,
+            model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": EXTRACTION_PROMPT},
+                {"role": "system", "content": EXTRACTION_PROMPT.strip()},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
         )
 
         content = response.choices[0].message.content or ""
-        results.append(
+        extracted_rows.append(
             {
                 "agreement_id": row["agreement_id"],
-                "raw_model_output": content,
+                "raw_response": content,
             }
         )
 
-    OUTPUT_PATH.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"Processed {len(results)} agreements -> {OUTPUT_PATH}")
+    OUTPUT_PATH.write_text(
+        json.dumps(extracted_rows, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    print(f"Extracted {len(extracted_rows)} agreements to {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
